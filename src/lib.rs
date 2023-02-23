@@ -1,66 +1,78 @@
 use std::str::FromStr;
 
+pub use self::distance::*;
+//pub use self::transform::*;
+
+mod distance;
+//mod transform;
+
+// represents 24 bit RGB color with 8 bit alpha channel for transparency
+#[derive(Copy, Clone, Debug)]
+pub struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl Color {
+    // channel values in decimal form
+    pub fn ch_red(&self) -> u8 {
+        self.r
+    }
+    pub fn ch_green(&self) -> u8 {
+        self.g
+    }
+    pub fn ch_blue(&self) -> u8 {
+        self.b
+    }
+    // channel values in hexidecimal string
+    pub fn ch_red_hex(&self) -> String {
+        hex::encode([self.ch_red()])
+    }
+    pub fn ch_green_hex(&self) -> String {
+        hex::encode([self.ch_green()])
+    }
+    pub fn ch_blue_hex(&self) -> String {
+        hex::encode([self.ch_blue()])
+    }
+}
+
+impl From<u32> for Color {
+    fn from(item: u32) -> Self {
+        let bytes: [u8; 4] = item.to_le_bytes();
+        Color { r: bytes[0], g: bytes[1], b: bytes[2] }
+    }
+}
+
+pub enum FromVecError {
+    InvalidLength,
+}
+
+impl From<Vec<u8>> for Color {
+    fn from(item: Vec<u8>) -> Self {
+        Color { r: item[0], g: item[1], b: item[2] }
+    }
+}
+
 pub enum FromStrError {
     InvalidLength,
     InvalidHexidecimal,
 }
 
-#[derive(Copy, Clone, Debug)]
-// todo: implement functions for accessing each channel value instead of public struct props
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
-}
-
 impl FromStr for Color {
     type Err = FromStrError;
-    fn from_str(s: &str) ->Result<Color, Self::Err> {
+    fn from_str(s: &str) -> Result<Color, Self::Err> {
         // shadow the value so it can't be changed outside of this scope
         let s = s;
-        // todo: check for # prefix
-        if s.len() != 8 {
+
+        if s.len() < 6 || s.len() > 7 {
             return Err(FromStrError::InvalidLength)
         }
-        let Ok(x) = hex::decode(s) else { return Err(FromStrError::InvalidHexidecimal)};
-        if x.len() != 4 {
+        // only pass the last 6 chars to skip a # prefix
+        let Ok(x) = hex::decode(&s[s.len()-6..]) else { return Err(FromStrError::InvalidHexidecimal)};
+        if x.len() != 3 {
             return Err(FromStrError::InvalidLength)
         }
-        return Ok(Color {r: x[0], g: x[1], b:x[2], a:x[3] })
+        return Ok(Color::from(x))
     }
-}
-// defaults to returning black, this could be improved
-pub fn nearest(needle: Color, haystack: &[Color]) -> &Color {
-    let mut lowest_diff: u32 = 255*4; // initially set as max value (255 x 4 channels)
-    let mut return_color: &Color = &Color { r: 0, g: 0, b: 0, a:0 };
-
-    for hay in haystack.iter() {
-        // Red
-        let new_diff = channel_diff(needle.r, hay.r)
-        // Green
-        + channel_diff(needle.g, hay.g)
-        // Blue
-        + channel_diff(needle.b, hay.b)
-        // Alpha
-        + channel_diff(needle.a, hay.a);
-
-        if (new_diff as u32) < lowest_diff {
-            lowest_diff = new_diff as u32;
-            return_color = hay;
-        }
-    }
-    return return_color;
-}
-
-// returns the difference between 2 color channel values
-fn channel_diff(a: u8, b: u8) -> u8 {
-    if a == b {
-        return 0;
-    }
-    if a > b {
-        return a - b;
-    }
-    // b > a is implied
-    return b - a;
 }
